@@ -1,0 +1,15 @@
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\bin\Debug\net9.0\Finvex.Application.deps.json
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\bin\Debug\net9.0\Finvex.Application.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\bin\Debug\net9.0\Finvex.Application.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\bin\Debug\net9.0\Finvex.Domain.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\bin\Debug\net9.0\Finvex.Domain.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.csproj.AssemblyReference.cache
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.AssemblyInfoInputs.cache
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.AssemblyInfo.cs
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.csproj.CoreCompileInputs.cache
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.A.D1BDA79A.Up2Date
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\refint\Finvex.Application.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\Finvex.Application.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Application\obj\Debug\net9.0\ref\Finvex.Application.dll

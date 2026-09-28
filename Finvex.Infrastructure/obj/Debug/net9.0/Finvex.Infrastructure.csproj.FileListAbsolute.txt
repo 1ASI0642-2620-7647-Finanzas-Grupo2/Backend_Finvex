@@ -1,0 +1,17 @@
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Infrastructure.deps.json
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Infrastructure.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Infrastructure.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Application.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Domain.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Domain.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\bin\Debug\net9.0\Finvex.Application.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.csproj.AssemblyReference.cache
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.AssemblyInfoInputs.cache
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.AssemblyInfo.cs
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.csproj.CoreCompileInputs.cache
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.I.E8D53F5A.Up2Date
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\refint\Finvex.Infrastructure.dll
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\Finvex.Infrastructure.pdb
+D:\joao\universidad UPC\SEPTIMO CICLO\Finanzas e Ingeniería Económica\Backend_Finvex\Finvex.Infrastructure\obj\Debug\net9.0\ref\Finvex.Infrastructure.dll
