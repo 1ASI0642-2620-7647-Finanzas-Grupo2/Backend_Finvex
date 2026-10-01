@@ -29,4 +29,13 @@ public sealed class AuthRepository(FinvexDbContext context) : IAuthRepository
         context.Clientes.Add(cliente);
         return Task.CompletedTask;
     }
+
+    public Task<AdministradorSistema?> ObtenerAdministradorSistemaPorUsuarioAsync(string usuario, CancellationToken cancellationToken) => context.AdministradoresSistema
+        .SingleOrDefaultAsync(x => x.Usuario == usuario, cancellationToken);
+
+    public Task AgregarAdministradorSistemaAsync(AdministradorSistema administrador, CancellationToken cancellationToken)
+    {
+        context.AdministradoresSistema.Add(administrador);
+        return Task.CompletedTask;
+    }
 }

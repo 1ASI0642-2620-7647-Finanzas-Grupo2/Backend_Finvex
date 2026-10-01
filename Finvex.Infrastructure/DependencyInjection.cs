@@ -15,6 +15,12 @@ public static class DependencyInjection
         services.AddScoped<IClienteRepository, ClienteRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ITiendaRepository, TiendaRepository>();
+        services.AddScoped<IProductoRepository, ProductoRepository>();
+        services.AddScoped<IListadoPagoRepository, ListadoPagoRepository>();
+        services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
+        services.AddScoped<AuditoriaService>();
+        services.AddScoped<IAuditoriaService>(provider => provider.GetRequiredService<AuditoriaService>());
         return services;
     }
 }

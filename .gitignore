@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+
+# Imágenes subidas por los usuarios (se conserva la carpeta)
+Finvex.API/wwwroot/uploads/productos/*
+!Finvex.API/wwwroot/uploads/productos/.gitkeep
