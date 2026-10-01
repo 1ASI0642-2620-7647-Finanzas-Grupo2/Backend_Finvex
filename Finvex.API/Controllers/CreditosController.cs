@@ -12,9 +12,11 @@ namespace Finvex.API.Controllers;
 public sealed class CreditosController(
     IClienteRepository clientes,
     IUnitOfWork unitOfWork,
-    IFinancialEngineService financialEngine) : ControllerBase
+    IFinancialEngineService financialEngine,
+    IProductoRepository productos,
+    IAuditoriaService auditoria) : ControllerBase
 {
-    /// <summary>Registra una compra fiada y, si corresponde, genera su cronograma.</summary>
+    /// <summary>Registra una compra fiada y, si corresponde, genera su cronograma. Valida límite de crédito y plazo máximo del cliente. Sin fecha de compra se usa la fecha y hora actual de Lima. Con ProductoId, el precio es PrecioLista por Cantidad y el producto debe pertenecer a la tienda, estar activo y permitir la modalidad.</summary>
     [HttpPost("compras")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(CompraResponse), StatusCodes.Status201Created)]
@@ -26,23 +28,38 @@ public sealed class CreditosController(
         if (cliente is null) return NotFound("Cliente no encontrado.");
         if (!EsTiendaAutorizada(cliente)) return Forbid();
         if (!cliente.Activo) return BadRequest("El cliente esta inactivo.");
-        if (request.PrecioCredito <= 0) return BadRequest("El precio debe ser mayor que cero.");
-        if (request.Modalidad == ModalidadCompra.Cuotas && request.PlazoMeses <= 0) return BadRequest("El plazo es obligatorio para cuotas.");
-
-        var deudaCapital = cliente.Compras.Where(x => x.Estado != EstadoCompra.Pagada).Sum(x => x.SaldoCapital);
-        var disponible = cliente.LimiteCredito - deudaCapital;
-        if (request.PrecioCredito > disponible)
-            return BadRequest(new CreditLimitExceededException(request.PrecioCredito, disponible).Message);
+        if (request.Cantidad < 1) return BadRequest("La cantidad debe ser mayor que cero.");
+        var descripcion = request.Producto?.Trim() ?? string.Empty;
+        var precioCredito = request.PrecioCredito;
+        try
+        {
+            if (request.ProductoId is long productoId)
+            {
+                var producto = await productos.ObtenerAsync(productoId, cancellationToken);
+                if (producto is null) return NotFound("Producto no encontrado.");
+                financialEngine.ValidarProducto(producto, cliente.TiendaId, request.Modalidad);
+                precioCredito = producto.PrecioLista * request.Cantidad;
+                descripcion = producto.Descripcion;
+            }
+            if (string.IsNullOrWhiteSpace(descripcion)) return BadRequest("El producto es obligatorio.");
+            financialEngine.ValidarCompra(cliente, precioCredito, request.Modalidad, request.PlazoMeses);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
 
         var compra = new Compra
         {
             ClienteId = clienteId,
-            Producto = request.Producto.Trim(),
-            PrecioCredito = decimal.Round(request.PrecioCredito, 2),
-            SaldoCapital = decimal.Round(request.PrecioCredito, 2),
+            Producto = descripcion,
+            PrecioCredito = decimal.Round(precioCredito, 2, MidpointRounding.AwayFromZero),
+            SaldoCapital = decimal.Round(precioCredito, 2, MidpointRounding.AwayFromZero),
             Modalidad = request.Modalidad,
             PlazoMeses = request.Modalidad == ModalidadCompra.Cuotas ? request.PlazoMeses : 1,
-            FechaCompra = (request.FechaCompra ?? DateTime.UtcNow).Date,
+            FechaCompra = request.FechaCompra.HasValue ? HoraLima.Normalizar(request.FechaCompra.Value) : HoraLima.Ahora,
+            ProductoId = request.ProductoId,
+            Cantidad = request.Cantidad,
             Estado = EstadoCompra.Pendiente
         };
 
@@ -53,13 +70,16 @@ public sealed class CreditosController(
         }
         cliente.Compras.Add(compra);
         await clientes.GuardarAsync(cliente, cancellationToken);
+        auditoria.Registrar(User, AccionAuditoria.Compra, nameof(Compra), cliente.TiendaId,
+            detalle: $"Cliente {cliente.Id}: {compra.Producto}, {compra.PrecioCredito}, {compra.Modalidad}, {compra.PlazoMeses} meses.",
+            completarAlGuardar: operacion => operacion.EntidadId = compra.Id);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created,
             new CompraResponse(compra.Id, compra.Producto, compra.PrecioCredito, compra.Modalidad, compra.Estado));
     }
 
-    /// <summary>Obtiene el estado de cuenta exigible del cliente a la fecha actual.</summary>
+    /// <summary>Obtiene el estado de cuenta del cliente: el exigible a hoy (hora Lima) si hay vencidos o, si no, el monto de la próxima fecha de pago. FechaCorte es el corte del ciclo abierto.</summary>
     [HttpGet("estado-cuenta")]
     [Authorize(Roles = "Admin,Cliente")]
     [ProducesResponseType(typeof(EstadoCuentaResponse), StatusCodes.Status200OK)]
@@ -70,12 +90,18 @@ public sealed class CreditosController(
         var cliente = await clientes.ObtenerConComprasAsync(clienteId, cancellationToken);
         if (cliente is null) return NotFound("Cliente no encontrado.");
         if (!EsTiendaAutorizada(cliente)) return Forbid();
-        var fecha = DateTime.UtcNow.Date;
-        var items = cliente.Compras.Where(x => x.Estado != EstadoCompra.Pagada).Select(compra => CrearEstado(compra, cliente, fecha)).ToArray();
-        return Ok(new EstadoCuentaResponse(clienteId, fecha, items.Sum(x => x.TotalExigible), items));
+        var ahora = HoraLima.Ahora;
+        var resumen = financialEngine.CalcularProximoPago(cliente, ahora.Date);
+        var fechaCorte = financialEngine.ObtenerFechaCorteCiclo(ahora, cliente.DiaCorte, cliente.HoraCorte);
+        var items = cliente.Compras
+            .Where(x => x.Estado != EstadoCompra.Pagada)
+            .OrderBy(x => x.FechaCompra)
+            .Select(compra => CrearEstado(compra, cliente, resumen.Fecha))
+            .ToArray();
+        return Ok(new EstadoCuentaResponse(clienteId, fechaCorte, resumen.Total, items));
     }
 
-    /// <summary>Registra un pago y lo imputa por mora, interes compensatorio y capital.</summary>
+    /// <summary>Registra un pago exacto por el total exigible a la fecha de pago (sin parciales ni excedentes) y lo imputa globalmente en el orden mora, interés compensatorio y capital.</summary>
     [HttpPost("pagos")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(PagoResponse), StatusCodes.Status200OK)]
@@ -88,86 +114,61 @@ public sealed class CreditosController(
         if (!EsTiendaAutorizada(cliente)) return Forbid();
         if (request.Monto <= 0) return BadRequest("El monto debe ser mayor que cero.");
 
-        var restante = decimal.Round(request.Monto, 2);
-        var imputacionMora = 0m;
-        var imputacionInteres = 0m;
-        var imputacionCapital = 0m;
-        var fechaPago = (request.FechaPago ?? DateTime.UtcNow).Date;
-
-        foreach (var compra in cliente.Compras.Where(x => x.Estado != EstadoCompra.Pagada).OrderBy(x => x.FechaCompra))
+        var fechaPago = (request.FechaPago.HasValue ? HoraLima.Normalizar(request.FechaPago.Value) : HoraLima.Ahora).Date;
+        ResultadoPago resultado;
+        try
         {
-            if (restante <= 0) break;
-            var estado = CrearEstado(compra, cliente, fechaPago);
-            var aplicacion = financialEngine.AplicarPrelacion(restante, estado.InteresMoratorio, estado.InteresCompensatorio, estado.CapitalPendiente);
-            imputacionMora += aplicacion.Mora;
-            imputacionInteres += aplicacion.Interes;
-            imputacionCapital += aplicacion.Capital;
-            restante -= aplicacion.Mora + aplicacion.Interes + aplicacion.Capital;
-            compra.SaldoCapital = Math.Max(0m, compra.SaldoCapital - aplicacion.Capital);
-            AplicarAcronograma(compra, aplicacion.Interes, aplicacion.Capital);
-            if (compra.SaldoCapital == 0m) compra.Estado = EstadoCompra.Pagada;
+            resultado = financialEngine.CalcularPago(cliente, request.Monto, fechaPago);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        foreach (var obligacion in resultado.Exigible.Obligaciones)
+        {
+            if (obligacion.Cuota is not null) obligacion.Cuota.Estado = EstadoCronograma.Pagada;
+            obligacion.Compra.SaldoCapital = Math.Max(0m, obligacion.Compra.SaldoCapital - obligacion.Capital);
+        }
+        foreach (var compra in resultado.Exigible.Obligaciones.Select(x => x.Compra).Distinct())
+        {
+            if (compra.SaldoCapital > 0m && compra.Cronogramas.Any(x => x.Estado != EstadoCronograma.Pagada)) continue;
+            compra.SaldoCapital = 0m;
+            compra.Estado = EstadoCompra.Pagada;
         }
 
         var pago = new Pago
         {
             ClienteId = clienteId,
-            MontoAbonado = request.Monto - restante,
+            MontoAbonado = resultado.Monto,
             FechaPago = fechaPago,
-            ImputacionMora = imputacionMora,
-            ImputacionInteres = imputacionInteres,
-            ImputacionCapital = imputacionCapital
+            ImputacionMora = resultado.ImputacionMora,
+            ImputacionInteres = resultado.ImputacionInteres,
+            ImputacionCapital = resultado.ImputacionCapital
         };
         cliente.Pagos.Add(pago);
         await clientes.GuardarAsync(cliente, cancellationToken);
+        auditoria.Registrar(User, AccionAuditoria.Pago, nameof(Pago), cliente.TiendaId,
+            detalle: $"Cliente {cliente.Id}: monto {pago.MontoAbonado}, mora {pago.ImputacionMora}, interés {pago.ImputacionInteres}, capital {pago.ImputacionCapital}.",
+            completarAlGuardar: operacion => operacion.EntidadId = pago.Id);
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Ok(new PagoResponse(pago.MontoAbonado, imputacionMora, imputacionInteres, imputacionCapital));
+        return Ok(new PagoResponse(pago.MontoAbonado, pago.ImputacionMora, pago.ImputacionInteres, pago.ImputacionCapital));
     }
 
     private EstadoCuentaItemResponse CrearEstado(Compra compra, Cliente cliente, DateTime fecha)
     {
-        var tem = financialEngine.ConvertirATem(cliente.TipoTasa, cliente.TasaCompensatoria);
-        var ted = financialEngine.CalcularTed(tem);
-        var tedMora = financialEngine.CalcularTed(financialEngine.ConvertirATem(cliente.TipoTasa, cliente.TasaMoratoria));
-        var cuotas = compra.Cronogramas.Where(x => x.Estado != EstadoCronograma.Pagada).OrderBy(x => x.NroCuota).ToArray();
-        var capital = compra.SaldoCapital;
-        var interes = 0m;
-        var mora = 0m;
-        foreach (var cuota in cuotas)
-        {
-            var fechaInteres = fecha < cuota.FechaVencimiento ? fecha : cuota.FechaVencimiento;
-            interes += financialEngine.CalcularInteresDiario(cuota.SaldoInicial, ted, Math.Max(0, (fechaInteres - compra.FechaCompra).Days));
-            if (fecha > cuota.FechaVencimiento) mora += financialEngine.CalcularInteresDiario(cuota.SaldoInicial, tedMora, (fecha - cuota.FechaVencimiento).Days);
-        }
-        if (cuotas.Length == 0)
-        {
-            var vencimiento = ObtenerFechaPago(compra.FechaCompra, cliente.DiaPago);
-            var fechaFinInteres = fecha < vencimiento ? fecha : vencimiento;
-            interes = financialEngine.CalcularInteresDiario(capital, ted, Math.Max(0, (fechaFinInteres - compra.FechaCompra).Days));
-            if (fecha > vencimiento) mora = financialEngine.CalcularInteresDiario(capital, tedMora, (fecha - vencimiento).Days);
-        }
-        var cuotaResponse = cuotas.Select(x => new CuotaResponse(x.NroCuota, x.FechaVencimiento, x.CuotaFija, x.Interes, x.Amortizacion, x.Estado)).ToArray();
-        return new EstadoCuentaItemResponse(compra.Id, compra.Producto, capital, decimal.Round(interes, 2), decimal.Round(mora, 2), decimal.Round(capital + interes + mora, 2), compra.Estado, cuotaResponse);
-    }
-
-    private static void AplicarAcronograma(Compra compra, decimal interes, decimal capital)
-    {
-        foreach (var cuota in compra.Cronogramas.Where(x => x.Estado != EstadoCronograma.Pagada).OrderBy(x => x.NroCuota))
-        {
-            var interesAplicado = Math.Min(interes, cuota.Interes);
-            cuota.Interes -= interesAplicado;
-            interes -= interesAplicado;
-            var capitalAplicado = Math.Min(capital, cuota.Amortizacion);
-            cuota.Amortizacion -= capitalAplicado;
-            capital -= capitalAplicado;
-            if (cuota.Interes <= 0m && cuota.Amortizacion <= 0m) cuota.Estado = EstadoCronograma.Pagada;
-            if (interes <= 0m && capital <= 0m) break;
-        }
-    }
-
-    private static DateTime ObtenerFechaPago(DateTime fecha, int dia)
-    {
-        var pago = new DateTime(fecha.Year, fecha.Month, Math.Min(dia, DateTime.DaysInMonth(fecha.Year, fecha.Month)));
-        return fecha <= pago ? pago : pago.AddMonths(1);
+        var exigibles = financialEngine.ObtenerObligaciones(compra, cliente, fecha)
+            .Where(x => x.FechaVencimiento <= fecha.Date)
+            .ToArray();
+        var estado = exigibles.Any(x => x.DiasMora > 0) ? EstadoCompra.Mora : compra.Estado;
+        var cuotas = compra.Cronogramas
+            .Where(x => x.Estado != EstadoCronograma.Pagada)
+            .OrderBy(x => x.NroCuota)
+            .Select(x => new CuotaResponse(x.NroCuota, x.FechaVencimiento, x.CuotaFija, x.Interes, x.Amortizacion,
+                x.FechaVencimiento.Date < fecha.Date ? EstadoCronograma.Mora : x.Estado))
+            .ToArray();
+        return new EstadoCuentaItemResponse(compra.Id, compra.Producto, compra.SaldoCapital, exigibles.Sum(x => x.Interes),
+            exigibles.Sum(x => x.Mora), exigibles.Sum(x => x.Total), estado, cuotas);
     }
 
     private bool EsClienteAutorizado(long clienteId) =>

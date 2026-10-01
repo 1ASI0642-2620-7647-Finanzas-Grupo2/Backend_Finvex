@@ -4,7 +4,7 @@ using Finvex.Domain;
 namespace Finvex.Application;
 
 public sealed record LoginRequest(string Usuario, string Password);
-public sealed record AuthenticatedUser(long Id, string Usuario, string Rol, long ContextId);
+public sealed record AuthenticatedUser(long Id, string Usuario, string Rol, long ContextId, long? TiendaId = null);
 public sealed record LoginResponse(string Token, string Rol, long Id, long? TiendaId, long? ClienteId, DateTime ExpiraEn);
 
 public interface IAuthRepository
@@ -15,6 +15,8 @@ public interface IAuthRepository
     Task<bool> ExisteClienteAsync(long tiendaId, string usuario, string dni, CancellationToken cancellationToken);
     Task AgregarTiendaAsync(Tienda tienda, CancellationToken cancellationToken);
     Task AgregarClienteAsync(Cliente cliente, CancellationToken cancellationToken);
+    Task<AdministradorSistema?> ObtenerAdministradorSistemaPorUsuarioAsync(string usuario, CancellationToken cancellationToken);
+    Task AgregarAdministradorSistemaAsync(AdministradorSistema administrador, CancellationToken cancellationToken);
 }
 
 public interface IAuthService
@@ -23,6 +25,8 @@ public interface IAuthService
     Task<(Cliente? Cliente, string? Error)> RegistrarClienteAsync(long tiendaId, RegistrarClienteRequest request, CancellationToken cancellationToken);
     Task<AuthenticatedUser?> AutenticarAdminAsync(string usuario, string password, CancellationToken cancellationToken);
     Task<AuthenticatedUser?> AutenticarClienteAsync(string usuario, string password, CancellationToken cancellationToken);
+    Task<AuthenticatedUser?> AutenticarAdminSistemaAsync(string usuario, string password, CancellationToken cancellationToken);
+    Task<bool> SembrarAdministradorSistemaAsync(string usuario, string password, CancellationToken cancellationToken);
 }
 
 public sealed class AuthService(IAuthRepository authRepository) : IAuthService
@@ -55,19 +59,24 @@ public sealed class AuthService(IAuthRepository authRepository) : IAuthService
             return (null, "DNI, nombres, usuario y contraseña son obligatorios; el DNI debe tener 8 caracteres.");
         if (await authRepository.ExisteClienteAsync(tiendaId, request.Usuario, request.Dni, cancellationToken))
             return (null, "El usuario o DNI ya se encuentran registrados en esta tienda.");
-        if (request.LimiteCredito < 0 || request.DiaCorte is < 1 or > 28 || request.DiaPago is < 1 or > 28)
-            return (null, "Los datos del cliente no cumplen las restricciones requeridas.");
+        var horaCorte = request.HoraCorte ?? new TimeSpan(23, 59, 59);
+        var error = ValidacionesCliente.ValidarCondiciones(request.LimiteCredito, request.TasaCompensatoria, request.TasaMoratoria,
+            request.DiaCorte, request.DiaPago, request.MaxMeses, horaCorte);
+        if (error is not null) return (null, error);
         var cliente = new Cliente
         {
             TiendaId = tiendaId,
             Dni = request.Dni.Trim(),
             NombresCompletos = request.Nombres.Trim(),
-            LimiteCredito = decimal.Round(request.LimiteCredito, 2),
+            LimiteCredito = decimal.Round(request.LimiteCredito, 2, MidpointRounding.AwayFromZero),
             TipoTasa = request.TipoTasa,
-            TasaCompensatoria = decimal.Round(request.TasaCompensatoria, 7),
-            TasaMoratoria = decimal.Round(request.TasaMoratoria, 7),
+            TasaCompensatoria = decimal.Round(request.TasaCompensatoria, 7, MidpointRounding.AwayFromZero),
+            TasaMoratoria = decimal.Round(request.TasaMoratoria, 7, MidpointRounding.AwayFromZero),
             DiaCorte = request.DiaCorte,
             DiaPago = request.DiaPago,
+            Moneda = request.Moneda,
+            MaxMeses = request.MaxMeses,
+            HoraCorte = horaCorte,
             Usuario = request.Usuario.Trim(),
             PasswordHash = global::BCrypt.Net.BCrypt.HashPassword(request.Password),
             Activo = true
@@ -79,8 +88,8 @@ public sealed class AuthService(IAuthRepository authRepository) : IAuthService
     public async Task<AuthenticatedUser?> AutenticarAdminAsync(string usuario, string password, CancellationToken cancellationToken)
     {
         var tienda = await authRepository.ObtenerTiendaPorUsuarioAsync(usuario, cancellationToken);
-        return tienda is not null && global::BCrypt.Net.BCrypt.Verify(password, tienda.PasswordHash)
-            ? new AuthenticatedUser(tienda.Id, tienda.Usuario, "Admin", tienda.Id)
+        return tienda is not null && tienda.Activo && global::BCrypt.Net.BCrypt.Verify(password, tienda.PasswordHash)
+            ? new AuthenticatedUser(tienda.Id, tienda.Usuario, "Admin", tienda.Id, tienda.Id)
             : null;
     }
 
@@ -88,7 +97,27 @@ public sealed class AuthService(IAuthRepository authRepository) : IAuthService
     {
         var cliente = await authRepository.ObtenerClientePorUsuarioAsync(usuario, cancellationToken);
         return cliente is not null && cliente.Activo && global::BCrypt.Net.BCrypt.Verify(password, cliente.PasswordHash)
-            ? new AuthenticatedUser(cliente.Id, cliente.Usuario, "Cliente", cliente.Id)
+            ? new AuthenticatedUser(cliente.Id, cliente.Usuario, "Cliente", cliente.Id, cliente.TiendaId)
             : null;
+    }
+
+    public async Task<AuthenticatedUser?> AutenticarAdminSistemaAsync(string usuario, string password, CancellationToken cancellationToken)
+    {
+        var administrador = await authRepository.ObtenerAdministradorSistemaPorUsuarioAsync(usuario, cancellationToken);
+        return administrador is not null && administrador.Activo && global::BCrypt.Net.BCrypt.Verify(password, administrador.PasswordHash)
+            ? new AuthenticatedUser(administrador.Id, administrador.Usuario, "AdminSistema", administrador.Id)
+            : null;
+    }
+
+    public async Task<bool> SembrarAdministradorSistemaAsync(string usuario, string password, CancellationToken cancellationToken)
+    {
+        if (await authRepository.ObtenerAdministradorSistemaPorUsuarioAsync(usuario.Trim(), cancellationToken) is not null) return false;
+        await authRepository.AgregarAdministradorSistemaAsync(new AdministradorSistema
+        {
+            Usuario = usuario.Trim(),
+            PasswordHash = global::BCrypt.Net.BCrypt.HashPassword(password),
+            Activo = true
+        }, cancellationToken);
+        return true;
     }
 }
