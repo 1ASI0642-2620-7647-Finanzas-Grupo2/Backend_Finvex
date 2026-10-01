@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Serialization;
+using Finvex.API;
 using Finvex.Application;
 using Finvex.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -7,7 +9,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: true)));
+var origenesPermitidos = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() is { Length: > 0 } origenes
+    ? origenes
+    : ["http://localhost:5173"];
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
+    policy.WithOrigins(origenesPermitidos).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -19,7 +27,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Ingresa el token JWT obtenido en /api/auth/login/admin o /api/auth/login/cliente."
+        Description = "Ingresa el token JWT obtenido en /api/auth/login/admin, /api/auth/login/cliente o /api/auth/login/sistema."
     });
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -36,6 +44,9 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddScoped<IFinancialEngineService, FinancialEngineService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<IListadoPagoService, ListadoPagoService>();
+builder.Services.AddHostedService<ListadoPagoBackgroundService>();
 builder.Services.AddInfrastructure(builder.Configuration);
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSettings["Key"] ?? throw new InvalidOperationException("No se configuró Jwt:Key.");
@@ -61,10 +72,25 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<FinvexDbContext>();
     dbContext.Database.EnsureCreated();
+    var usuarioSistema = app.Configuration["SistemaAdmin:Usuario"];
+    var passwordSistema = app.Configuration["SistemaAdmin:Password"];
+    if (string.IsNullOrWhiteSpace(usuarioSistema) || string.IsNullOrWhiteSpace(passwordSistema))
+    {
+        app.Logger.LogWarning("No se configuró SistemaAdmin:Usuario o SistemaAdmin:Password; no se sembró el administrador del sistema.");
+    }
+    else
+    {
+        var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+        if (await authService.SembrarAdministradorSistemaAsync(usuarioSistema, passwordSistema, CancellationToken.None))
+            await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(CancellationToken.None);
+    }
 }
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseStaticFiles();
+app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
