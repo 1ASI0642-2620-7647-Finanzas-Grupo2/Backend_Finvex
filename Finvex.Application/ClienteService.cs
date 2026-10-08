@@ -23,10 +23,10 @@ public sealed class ClienteService(IClienteRepository clientes, IFinancialEngine
 {
     public async Task<(Cliente? Cliente, string? Error)> ActualizarAsync(Cliente cliente, ActualizarClienteRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Dni) || request.Dni.Trim().Length != 8 || string.IsNullOrWhiteSpace(request.Nombres))
-            return (null, "DNI y nombres son obligatorios; el DNI debe tener 8 caracteres.");
-        if (request.Password is not null && string.IsNullOrWhiteSpace(request.Password))
-            return (null, "La contraseña no puede estar vacía.");
+        if (string.IsNullOrWhiteSpace(request.Dni) || request.Dni.Trim().Length != 8 || !request.Dni.Trim().All(char.IsDigit) || string.IsNullOrWhiteSpace(request.Nombres))
+            return (null, "DNI y nombres son obligatorios; el DNI debe tener 8 dígitos.");
+        if (request.Password is not null && request.Password.Length < 6)
+            return (null, "La contraseña debe tener al menos 6 caracteres.");
         var maxMeses = request.MaxMeses ?? cliente.MaxMeses;
         var horaCorte = request.HoraCorte ?? cliente.HoraCorte;
         var error = ValidacionesCliente.ValidarCondiciones(request.LimiteCredito, request.TasaCompensatoria, request.TasaMoratoria,
