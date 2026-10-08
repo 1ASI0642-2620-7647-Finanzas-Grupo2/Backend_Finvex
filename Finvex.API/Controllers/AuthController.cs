@@ -85,16 +85,19 @@ public sealed class AuthController(IAuthService authService, IUnitOfWork unitOfW
         var issuer = jwt["Issuer"] ?? "Finvex";
         var audience = jwt["Audience"] ?? "Finvex.Clients";
         var expiration = DateTime.UtcNow.AddMinutes(int.TryParse(jwt["ExpirationMinutes"], out var minutes) ? minutes : 60);
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.UniqueName, user.Usuario),
             new Claim(ClaimTypes.Role, user.Rol),
             new Claim(user.Rol switch { "Admin" => "TiendaId", "Cliente" => "ClienteId", _ => "AdminSistemaId" }, user.ContextId.ToString())
         };
+        if (user.TiendaId.HasValue && !claims.Any(x => x.Type == "TiendaId"))
+            claims.Add(new Claim("TiendaId", user.TiendaId.Value.ToString()));
         var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(issuer, audience, claims, expires: expiration, signingCredentials: credentials);
         return new LoginResponse(new JwtSecurityTokenHandler().WriteToken(token), user.Rol, user.Id,
-            user.Rol == "Admin" ? user.ContextId : null, user.Rol == "Cliente" ? user.ContextId : null, expiration);
+            user.TiendaId, user.Rol == "Cliente" ? user.ContextId : null, expiration);
     }
 }

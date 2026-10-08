@@ -16,7 +16,7 @@ public sealed class ListadoPagoBackgroundService(IServiceScopeFactory scopeFacto
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var servicio = scope.ServiceProvider.GetRequiredService<IListadoPagoService>();
                 var ahora = HoraLima.Ahora;
-                var generados = await servicio.GenerarCortesDelDiaAsync(ahora, stoppingToken);
+                var generados = await servicio.GenerarUltimosCortesPendientesAsync(ahora, stoppingToken);
                 if (generados > 0)
                 {
                     await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(stoppingToken);

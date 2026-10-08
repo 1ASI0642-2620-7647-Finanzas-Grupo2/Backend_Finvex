@@ -25,17 +25,12 @@ public sealed class ListadoPagoService(
         return (listado, true, null);
     }
 
-    public async Task<int> GenerarCortesDelDiaAsync(DateTime ahora, CancellationToken cancellationToken)
+    public async Task<int> GenerarUltimosCortesPendientesAsync(DateTime ahora, CancellationToken cancellationToken)
     {
-        var hoy = ahora.Date;
-        var dias = hoy.Day == DateTime.DaysInMonth(hoy.Year, hoy.Month)
-            ? Enumerable.Range(hoy.Day, 32 - hoy.Day).ToArray()
-            : new[] { hoy.Day };
         var generados = 0;
-        foreach (var cliente in await clientes.ListarActivosConDiaCorteAsync(dias, cancellationToken))
+        foreach (var cliente in await clientes.ListarActivosConDiaCorteAsync(Enumerable.Range(1, 28).ToArray(), cancellationToken))
         {
-            var corte = financialEngine.ObtenerFechaCorteCiclo(hoy, cliente.DiaCorte, cliente.HoraCorte);
-            if (corte.Date != hoy || corte > ahora) continue;
+            var corte = financialEngine.ObtenerUltimoCorteCerrado(ahora, cliente.DiaCorte, cliente.HoraCorte);
             if (await listados.ExisteAsync(cliente.Id, corte.Date, cancellationToken)) continue;
             await listados.AgregarAsync(CrearEntidad(financialEngine.CalcularListadoPago(cliente, corte, ahora)), cancellationToken);
             generados++;

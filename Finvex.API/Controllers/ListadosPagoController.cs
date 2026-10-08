@@ -53,5 +53,5 @@ public sealed class ListadosPagoController(
         long.TryParse(User.FindFirst("ClienteId")?.Value, out var tokenClienteId) && tokenClienteId == clienteId;
 
     private bool EsTiendaAutorizada(Cliente cliente) =>
-        User.IsInRole("Cliente") || (long.TryParse(User.FindFirstValue("TiendaId"), out var tiendaId) && tiendaId == cliente.TiendaId);
+        long.TryParse(User.FindFirstValue("TiendaId"), out var tiendaId) && tiendaId == cliente.TiendaId;
 }

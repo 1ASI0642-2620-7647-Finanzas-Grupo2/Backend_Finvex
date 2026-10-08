@@ -54,7 +54,7 @@ public sealed class ProductosController(
     public async Task<ActionResult<ProductoResponse>> Registrar(ProductoRequest request, CancellationToken cancellationToken)
     {
         if (!long.TryParse(User.FindFirstValue("TiendaId"), out var tiendaId)) return Unauthorized();
-        var error = Validar(request);
+        var error = ValidacionesEntrada.ValidarProducto(request);
         if (error is not null) return BadRequest(error);
         var producto = new Producto { TiendaId = tiendaId, Activo = true };
         Asignar(producto, request);
@@ -74,7 +74,7 @@ public sealed class ProductosController(
     {
         var producto = await ObtenerDeTiendaAsync(id, cancellationToken);
         if (producto is null) return NotFound("Producto no encontrado.");
-        var error = Validar(request);
+        var error = ValidacionesEntrada.ValidarProducto(request);
         if (error is not null) return BadRequest(error);
         Asignar(producto, request);
         auditoria.Registrar(User, AccionAuditoria.Edicion, nameof(Producto), producto.TiendaId, producto.Id,
@@ -146,15 +146,6 @@ public sealed class ProductosController(
         if (!long.TryParse(User.FindFirstValue("TiendaId"), out var tiendaId)) return null;
         var producto = await productos.ObtenerAsync(id, cancellationToken);
         return producto is not null && producto.TiendaId == tiendaId ? producto : null;
-    }
-
-    private static string? Validar(ProductoRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Marca) || string.IsNullOrWhiteSpace(request.Descripcion) || string.IsNullOrWhiteSpace(request.UnidadMedida))
-            return "Marca, descripción y unidad de medida son obligatorias.";
-        if (request.PrecioContado <= 0 || request.PrecioLista <= 0) return "Los precios deben ser mayores que cero.";
-        if (!request.PermiteFinDeMes && !request.PermiteCuotas) return "El producto debe permitir al menos una modalidad de crédito.";
-        return null;
     }
 
     private static void Asignar(Producto producto, ProductoRequest request)

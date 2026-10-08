@@ -7,7 +7,7 @@ public static class ValidacionesCliente
     public const int MaxMesesPermitido = 36;
 
     public static string? ValidarCondiciones(decimal limiteCredito, decimal tasaCompensatoria, decimal tasaMoratoria,
-        int diaCorte, int diaPago, int maxMeses, TimeSpan horaCorte)
+        int diaCorte, int diaPago, int maxMeses, TimeSpan horaCorte, TipoTasa tipoTasa, Moneda moneda)
     {
         if (limiteCredito < 0) return "El límite de crédito no puede ser negativo.";
         if (tasaCompensatoria <= 0) return "La tasa compensatoria debe ser mayor que cero.";
@@ -15,6 +15,8 @@ public static class ValidacionesCliente
         if (diaCorte is < 1 or > 28 || diaPago is < 1 or > 28) return "El día de corte y el día de pago deben estar entre 1 y 28.";
         if (maxMeses is < 1 or > MaxMesesPermitido) return $"El plazo máximo debe estar entre 1 y {MaxMesesPermitido} meses.";
         if (horaCorte < TimeSpan.Zero || horaCorte >= TimeSpan.FromDays(1)) return "La hora de corte debe estar entre 00:00:00 y 23:59:59.";
+        if (!Enum.IsDefined(tipoTasa)) return "El tipo de tasa debe ser Nominal o Efectiva.";
+        if (!Enum.IsDefined(moneda)) return "La moneda debe ser PEN o USD.";
         return null;
     }
 }
@@ -23,14 +25,13 @@ public sealed class ClienteService(IClienteRepository clientes, IFinancialEngine
 {
     public async Task<(Cliente? Cliente, string? Error)> ActualizarAsync(Cliente cliente, ActualizarClienteRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Dni) || request.Dni.Trim().Length != 8 || string.IsNullOrWhiteSpace(request.Nombres))
-            return (null, "DNI y nombres son obligatorios; el DNI debe tener 8 caracteres.");
-        if (request.Password is not null && string.IsNullOrWhiteSpace(request.Password))
-            return (null, "La contraseña no puede estar vacía.");
+        var error = ValidacionesEntrada.ValidarClienteActualizado(request);
+        if (error is not null) return (null, error);
         var maxMeses = request.MaxMeses ?? cliente.MaxMeses;
         var horaCorte = request.HoraCorte ?? cliente.HoraCorte;
-        var error = ValidacionesCliente.ValidarCondiciones(request.LimiteCredito, request.TasaCompensatoria, request.TasaMoratoria,
-            request.DiaCorte, request.DiaPago, maxMeses, horaCorte);
+        var moneda = request.Moneda ?? cliente.Moneda;
+        error = ValidacionesCliente.ValidarCondiciones(request.LimiteCredito, request.TasaCompensatoria, request.TasaMoratoria,
+            request.DiaCorte, request.DiaPago, maxMeses, horaCorte, request.TipoTasa, moneda);
         if (error is not null) return (null, error);
         if (await clientes.ExisteDniAsync(cliente.TiendaId, request.Dni.Trim(), cliente.Id, cancellationToken))
             return (null, "El DNI ya se encuentra registrado en esta tienda.");
@@ -43,7 +44,7 @@ public sealed class ClienteService(IClienteRepository clientes, IFinancialEngine
         cliente.TasaMoratoria = decimal.Round(request.TasaMoratoria, 7, MidpointRounding.AwayFromZero);
         cliente.DiaCorte = request.DiaCorte;
         cliente.DiaPago = request.DiaPago;
-        cliente.Moneda = request.Moneda ?? cliente.Moneda;
+        cliente.Moneda = moneda;
         cliente.MaxMeses = maxMeses;
         cliente.HoraCorte = horaCorte;
         if (request.Password is not null) cliente.PasswordHash = global::BCrypt.Net.BCrypt.HashPassword(request.Password);
