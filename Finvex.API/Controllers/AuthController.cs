@@ -47,7 +47,7 @@ public sealed class AuthController(IAuthService authService, IUnitOfWork unitOfW
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<LoginResponse>> LoginCliente(LoginRequest request, CancellationToken cancellationToken)
     {
-        var user = await authService.AutenticarClienteAsync(request.Usuario, request.Password, request.TiendaRuc, cancellationToken);
+        var user = await authService.AutenticarClienteAsync(request.Usuario, request.Password, cancellationToken);
         await RegistrarLoginAsync(user, nameof(Cliente), request.Usuario, cancellationToken);
         return user is null ? Unauthorized("Usuario o contraseña inválidos.") : Ok(CrearRespuesta(user));
     }

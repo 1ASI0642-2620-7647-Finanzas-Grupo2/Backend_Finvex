@@ -27,7 +27,7 @@ public sealed record ResumenExigible(DateTime Fecha, IReadOnlyCollection<Obligac
 public sealed record ResultadoPago(ResumenExigible Exigible, decimal Monto, decimal ImputacionMora, decimal ImputacionInteres, decimal ImputacionCapital);
 
 public sealed record TiendaResponse(long Id, string Ruc, string RazonSocial, string Giro, string Usuario, bool Activo, string Estado);
-public sealed record ProductoRequest(string Marca, string Descripcion, string UnidadMedida, decimal PrecioContado, decimal PrecioLista, bool PermiteFinDeMes = true, bool PermiteCuotas = true, string? Proveedor = null);
+public sealed record ProductoRequest(string Marca, string Descripcion, string UnidadMedida, decimal PrecioContado, decimal PrecioLista, bool PermiteFinDeMes = true, bool PermiteCuotas = false, string? Proveedor = null);
 public sealed record ProductoResponse(long Id, string? Proveedor, string Marca, string Descripcion, string UnidadMedida, string? ImagenUrl, decimal PrecioContado, decimal PrecioLista, bool PermiteFinDeMes, bool PermiteCuotas, bool Activo);
 
 public sealed record ItemListadoPagoResponse(TipoItemListado Tipo, long? CompraId, int? NroCuota, string Descripcion, DateTime Fecha, decimal Capital, int Dias, decimal InteresCompensatorio, decimal Monto);

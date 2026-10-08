@@ -106,6 +106,7 @@ public sealed class FinancialEngineService : IFinancialEngineService
     public void ValidarCompra(Cliente cliente, decimal monto, ModalidadCompra modalidad, int plazoMeses)
     {
         if (monto <= 0) throw new DomainException("El precio debe ser mayor que cero.");
+        if (!Enum.IsDefined(modalidad)) throw new DomainException("La modalidad debe ser FinDeMes o Cuotas.");
         if (modalidad == ModalidadCompra.Cuotas && plazoMeses <= 0) throw new DomainException("El plazo es obligatorio para cuotas.");
         var plazo = modalidad == ModalidadCompra.Cuotas ? plazoMeses : 1;
         if (plazo > cliente.MaxMeses)

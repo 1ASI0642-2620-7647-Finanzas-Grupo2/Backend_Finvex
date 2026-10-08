@@ -8,7 +8,7 @@ La solución fue compilada y probada contra MySQL local en el puerto 3306, con A
 
 Resultados reproducibles:
 
-- Backend: compilación sin errores ni advertencias; 38 pruebas xUnit aprobadas.
+- Backend: compilación sin errores ni advertencias; 44 pruebas xUnit aprobadas.
 - Frontend: `npm ci` y `npm run build` aprobados.
 - Swagger: accesible en `/swagger`.
 - Juego 1: cuota `328.97`; pago con mora `331.67`.
@@ -16,7 +16,7 @@ Resultados reproducibles:
 - Historial: un pago recuperado desde MySQL mediante la API.
 - Separación: accesos cruzados entre dos tiendas rechazados con HTTP 403 para Admin y Cliente.
 - Auditoría: dos operaciones de pago verificadas.
-- Navegador: accesos Admin y Cliente, estado de cuenta y navegación sin errores críticos de consola.
+- Login de cliente: contrato simplificado a usuario y contraseña; el smoke verificó los claims y el aislamiento. El navegador aislado no pudo acceder a `localhost`, por lo que la comprobación visual se limita a la compilación y revisión estructural de la vista.
 
 El script `scripts/SmokeIntegration.ps1` crea exclusivamente datos ficticios y no elimina datos existentes.
 
@@ -28,7 +28,7 @@ Los nombres indicados corresponden al JSON camelCase que consume TypeScript.
 | --- | --- | --- | --- | --- | --- | --- |
 | Registro de tienda | `POST /api/auth/register/admin` | Público | `ruc, razonSocial, giro, usuario, password` | `RegistroResponse` | 400 de validación/duplicado; mensaje del API | Tiendas y credencial Admin |
 | Login Admin | `POST /api/auth/login/admin` | Público | `usuario, password` | `LoginResponse` | 401; alerta en formulario | Auditoría de login |
-| Login Cliente | `POST /api/auth/login/cliente` | Público | `usuario, password, tiendaRuc` | `LoginResponse` con `tiendaId` y `clienteId` | 400 sin RUC, 401 credenciales; mensaje en formulario | Auditoría de login |
+| Login Cliente | `POST /api/auth/login/cliente` | Público | `usuario, password` | `LoginResponse` con `tiendaId` y `clienteId` | 401 con mensaje genérico; el usuario debe ser único | Auditoría de login |
 | Login Sistema | `POST /api/auth/login/sistema` | Público | `usuario, password` | `LoginResponse` | 401; alerta en formulario | Auditoría de login |
 | Clientes | `GET /api/clientes` | Admin | — | `ClienteListItem[]` | 401/403; alerta y estado vacío | Lectura |
 | Crear cliente | `POST /api/clientes` | Admin | `RegistrarClienteRequest` | `RegistroResponse` | 400 con validaciones 1–28, tasas, DNI y plazo | Cliente y auditoría |
@@ -49,6 +49,8 @@ Los nombres indicados corresponden al JSON camelCase que consume TypeScript.
 | Auditoría | `GET /api/auditoria` | Admin, AdminSistema | filtros y paginación | `PaginaResponse<Operacion>` | 400/403; alerta | Lectura |
 
 Todos los endpoints con datos de tienda validan el `TiendaId` del JWT en el backend. El cliente valida además su `ClienteId`; no se confía en ocultar controles en la interfaz.
+
+El registro impide reutilizar un usuario de cliente entre tiendas. Para datos históricos ambiguos, el repositorio limita la búsqueda a dos coincidencias y solo autentica cuando existe exactamente una cuenta en una tienda activa; nunca elige una tienda arbitrariamente.
 
 ## Reglas financieras verificadas
 
@@ -93,8 +95,9 @@ Recomendación pendiente de autorización: mantener límites configurables por m
 2. **Concurrencia de pagos.** El proceso es transaccional, pero dos solicitudes simultáneas pueden competir antes del guardado. Se recomienda bloqueo de fila o token de concurrencia, lo que requiere una decisión de persistencia.
 3. **Cortes tras interrupciones largas.** El servicio recupera el último corte cerrado al reiniciar y evita duplicados; no recorre automáticamente todos los meses omitidos.
 4. **Topes BCRP.** No están aplicados por el conflicto descrito y porque deben versionarse por fecha, moneda y tipo de tasa.
-5. **Informe fuente.** El archivo `1ASI0642-2620-7647_Informe_Grupo 2 (8).pdf` no estuvo disponible en los repositorios ni en los adjuntos accesibles. Esta validación usa el enunciado entregado, las pruebas y `docs/DatosDePrueba.md`; debe repetirse la comparación textual cuando se aporte el PDF.
+5. **Enunciado oficial pendiente.** Se revisó visual y textualmente el informe FINVEX versión (10), incluidas las secciones 5, 6.1–6.4, 7 y 8. No se encontró `SI642_Enunciado del Trabajo Final 2026-20.pdf`; por ello no se afirma una verificación completa contra ese documento.
 6. **Dependencias frontend.** `npm audit` reporta 10 vulnerabilidades (4 moderadas y 6 altas), ninguna crítica. Las correcciones propuestas implican versiones mayores y deben probarse aparte.
+7. **Unicidad global de usuario de cliente.** Se valida en la aplicación para mantener un login simple sin RUC y se rechazan coincidencias históricas ambiguas. El esquema actual solo tiene un índice único por tienda, de modo que una garantía ante altas simultáneas entre tiendas requeriría cambiar el índice; no se hizo por la restricción de no modificar la base de datos.
 
 ## Reproducción
 

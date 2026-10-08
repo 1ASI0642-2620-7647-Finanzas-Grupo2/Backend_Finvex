@@ -29,6 +29,7 @@ $ruc1 = "20$suffix"
 $ruc2 = "20$suffix2"
 $password = "Smoke-2026!"
 $sharedUser = "smoke-cliente-$suffix"
+$otherUser = "smoke-cliente-$suffix2"
 
 $swagger = Invoke-WebRequest -Uri "$BaseUrl/swagger/index.html"
 Assert-Equal 200 $swagger.StatusCode "Swagger no respondió"
@@ -93,12 +94,12 @@ $admin2 = $login2.token
 $clientOtherStore = Invoke-Finvex POST "/api/clientes" @{
     dni = "40000001"; nombres = "Cliente Homónimo Otra Tienda"; limiteCredito = 100; tipoTasa = "Nominal"
     tasaCompensatoria = 0.36; tasaMoratoria = 0; diaCorte = 20; diaPago = 26
-    usuario = $sharedUser; password = $password; moneda = "PEN"; maxMeses = 1
+    usuario = $otherUser; password = $password; moneda = "PEN"; maxMeses = 1
 } $admin2
-$clientLogin1 = Invoke-Finvex POST "/api/auth/login/cliente" @{ usuario = $sharedUser; password = $password; tiendaRuc = $ruc1 }
-$clientLogin2 = Invoke-Finvex POST "/api/auth/login/cliente" @{ usuario = $sharedUser; password = $password; tiendaRuc = $ruc2 }
-Assert-Equal $client1.id $clientLogin1.clienteId "El RUC no resolvió al cliente de la tienda uno"
-Assert-Equal $clientOtherStore.id $clientLogin2.clienteId "El RUC no resolvió al cliente de la tienda dos"
+$clientLogin1 = Invoke-Finvex POST "/api/auth/login/cliente" @{ usuario = $sharedUser; password = $password }
+$clientLogin2 = Invoke-Finvex POST "/api/auth/login/cliente" @{ usuario = $otherUser; password = $password }
+Assert-Equal $client1.id $clientLogin1.clienteId "El usuario no resolvió al cliente de la tienda uno"
+Assert-Equal $clientOtherStore.id $clientLogin2.clienteId "El usuario no resolvió al cliente de la tienda dos"
 Assert-Status 403 GET "/api/clientes/$($client1.id)" $admin2
 Assert-Status 403 GET "/api/clientes/$($clientOtherStore.id)/estado-cuenta" $clientLogin1.token
 

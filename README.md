@@ -87,17 +87,16 @@ Rutas públicas:
 - `POST /api/auth/login/cliente`
 - `POST /api/auth/login/sistema`
 
-El login de cliente necesita el contexto de tienda:
+El login de cliente usa un nombre de usuario único:
 
 ```json
 {
   "usuario": "cliente.demo",
-  "password": "Contrasena-Local!",
-  "tiendaRuc": "20601234567"
+  "password": "Contrasena-Local!"
 }
 ```
 
-Esto mantiene compatibilidad con la unicidad `TiendaId + Usuario`. El JWT del cliente incluye ambos identificadores y los controladores verifican pertenencia real.
+Las altas nuevas no permiten reutilizar un usuario de cliente en otra tienda. Si datos históricos contuvieran más de una coincidencia, la autenticación falla de forma genérica. El JWT del cliente incluye `ClienteId` y `TiendaId`, y los controladores verifican la pertenencia real.
 
 ## Endpoints principales
 
@@ -121,7 +120,7 @@ Swagger documenta cuerpos y respuestas. La matriz completa con DTO TypeScript, e
 ## Reglas de entrada
 
 - DNI: ocho dígitos; RUC: once dígitos.
-- Contraseña: mínimo seis caracteres.
+- Contraseñas nuevas y cambios de contraseña: mínimo ocho caracteres. El login no invalida contraseñas históricas por longitud.
 - Días de corte y pago: enteros de 1 a 28.
 - Hora de corte por defecto: `23:59:59`.
 - Tasa compensatoria: mayor que cero.
@@ -167,7 +166,7 @@ El script usa datos ficticios únicos y verifica Swagger, productos, clientes, a
 4. Registre una compra FinDeMes y otra en Cuotas.
 5. Revise estado de cuenta, cronograma y listado.
 6. Registre el monto exacto y verifique historial.
-7. Ingrese como Cliente usando usuario, contraseña y RUC.
+7. Ingrese como Cliente usando usuario y contraseña.
 8. Compruebe aislamiento con una segunda tienda y revise auditoría.
 
 ## Limitaciones conocidas
@@ -175,7 +174,7 @@ El script usa datos ficticios únicos y verifica Swagger, productos, clientes, a
 - Las condiciones de crédito no quedan congeladas por compra; corregirlo requiere una ampliación aprobada del esquema.
 - Dos pagos realmente simultáneos requieren una estrategia explícita de bloqueo o control de concurrencia.
 - Los topes BCRP no se aplican automáticamente por fecha/moneda y el Juego 1 académico entra en conflicto con el límite moratorio revisado.
-- El informe PDF solicitado no estuvo disponible durante la revisión; consulte el detalle en `docs/Integracion.md`.
+- El informe FINVEX versión (10) fue revisado; el enunciado oficial `SI642_Enunciado del Trabajo Final 2026-20.pdf` no estuvo disponible y su comparación textual sigue pendiente.
 
 ## Publicación
 

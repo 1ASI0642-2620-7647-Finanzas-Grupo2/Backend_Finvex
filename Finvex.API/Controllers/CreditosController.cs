@@ -41,7 +41,8 @@ public sealed class CreditosController(
                 precioCredito = producto.PrecioLista * request.Cantidad;
                 descripcion = producto.Descripcion;
             }
-            if (string.IsNullOrWhiteSpace(descripcion)) return BadRequest("El producto es obligatorio.");
+            if (descripcion.Length is < ValidacionesEntrada.DescripcionProductoMinima or > ValidacionesEntrada.DescripcionProductoMaxima)
+                return BadRequest($"La descripción del producto debe tener entre {ValidacionesEntrada.DescripcionProductoMinima} y {ValidacionesEntrada.DescripcionProductoMaxima} caracteres.");
             financialEngine.ValidarCompra(cliente, precioCredito, request.Modalidad, request.PlazoMeses);
         }
         catch (DomainException ex)
