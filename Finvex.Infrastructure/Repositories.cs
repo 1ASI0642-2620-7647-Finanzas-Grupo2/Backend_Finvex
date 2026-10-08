@@ -22,6 +22,13 @@ public sealed class ClienteRepository(FinvexDbContext context) : IClienteReposit
         .OrderBy(x => x.NombresCompletos)
         .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Pago>> ListarPagosAsync(long clienteId, CancellationToken cancellationToken) => await context.Pagos
+        .AsNoTracking()
+        .Where(x => x.ClienteId == clienteId)
+        .OrderByDescending(x => x.FechaPago)
+        .ThenByDescending(x => x.Id)
+        .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Cliente>> ListarActivosConDiaCorteAsync(IReadOnlyCollection<int> diasCorte, CancellationToken cancellationToken) => await context.Clientes
         .Include(x => x.Compras).ThenInclude(x => x.Cronogramas)
         .Where(x => x.Activo && diasCorte.Contains(x.DiaCorte))

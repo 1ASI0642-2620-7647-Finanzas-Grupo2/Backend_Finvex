@@ -9,8 +9,11 @@ public sealed class AuthRepository(FinvexDbContext context) : IAuthRepository
     public Task<Tienda?> ObtenerTiendaPorUsuarioAsync(string usuario, CancellationToken cancellationToken) => context.Tiendas
         .SingleOrDefaultAsync(x => x.Usuario == usuario, cancellationToken);
 
-    public Task<Cliente?> ObtenerClientePorUsuarioAsync(string usuario, CancellationToken cancellationToken) => context.Clientes
-        .SingleOrDefaultAsync(x => x.Usuario == usuario, cancellationToken);
+    public Task<Cliente?> ObtenerClientePorUsuarioAsync(string usuario, string tiendaRuc, CancellationToken cancellationToken) =>
+        (from cliente in context.Clientes
+         join tienda in context.Tiendas on cliente.TiendaId equals tienda.Id
+         where cliente.Usuario == usuario && tienda.Ruc == tiendaRuc && tienda.Activo
+         select cliente).SingleOrDefaultAsync(cancellationToken);
 
     public Task<bool> ExisteTiendaAsync(string usuario, string ruc, CancellationToken cancellationToken) => context.Tiendas
         .AnyAsync(x => x.Usuario == usuario || x.Ruc == ruc, cancellationToken);

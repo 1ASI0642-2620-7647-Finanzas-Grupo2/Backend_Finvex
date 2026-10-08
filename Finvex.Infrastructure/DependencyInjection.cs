@@ -9,8 +9,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Finvex")
-            ?? throw new InvalidOperationException("No se configuró ConnectionStrings:Finvex.");
+        var connectionString = configuration.GetConnectionString("Finvex");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            throw new InvalidOperationException("ConnectionStrings:Finvex debe configurarse mediante User Secrets o variables de entorno.");
         services.AddDbContext<FinvexDbContext>(options => options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
         services.AddScoped<IClienteRepository, ClienteRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();

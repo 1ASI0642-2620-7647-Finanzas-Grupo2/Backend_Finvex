@@ -32,6 +32,7 @@ public interface IClienteRepository
     Task<Cliente?> ObtenerConComprasAsync(long id, CancellationToken cancellationToken);
     Task GuardarAsync(Cliente cliente, CancellationToken cancellationToken);
     Task<IReadOnlyList<Cliente>> ListarPorTiendaAsync(long tiendaId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Pago>> ListarPagosAsync(long clienteId, CancellationToken cancellationToken);
     Task<bool> ExisteDniAsync(long tiendaId, string dni, long excluirClienteId, CancellationToken cancellationToken);
     Task<IReadOnlyList<Cliente>> ListarActivosConDiaCorteAsync(IReadOnlyCollection<int> diasCorte, CancellationToken cancellationToken);
 }
@@ -68,7 +69,7 @@ public interface IListadoPagoService
     DateTime ResolverFechaCorte(Cliente cliente, DateTime? fechaCorte, DateTime ahora);
     ListadoPagoResponse Calcular(Cliente cliente, DateTime? fechaCorte, DateTime ahora);
     Task<(ListadoPago? Listado, bool Creado, string? Error)> GenerarAsync(Cliente cliente, DateTime? fechaCorte, DateTime ahora, CancellationToken cancellationToken);
-    Task<int> GenerarCortesDelDiaAsync(DateTime ahora, CancellationToken cancellationToken);
+    Task<int> GenerarUltimosCortesPendientesAsync(DateTime ahora, CancellationToken cancellationToken);
     ListadoPagoResponse CrearRespuesta(ListadoPago listado);
 }
 

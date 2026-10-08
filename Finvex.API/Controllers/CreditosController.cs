@@ -98,7 +98,24 @@ public sealed class CreditosController(
             .OrderBy(x => x.FechaCompra)
             .Select(compra => CrearEstado(compra, cliente, resumen.Fecha))
             .ToArray();
-        return Ok(new EstadoCuentaResponse(clienteId, fechaCorte, resumen.Total, items));
+        return Ok(new EstadoCuentaResponse(clienteId, cliente.Moneda, fechaCorte, resumen.Total, items));
+    }
+
+    /// <summary>Lista el historial persistido de pagos del cliente, del más reciente al más antiguo.</summary>
+    [HttpGet("pagos")]
+    [Authorize(Roles = "Admin,Cliente")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<PagoHistorialResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PagoHistorialResponse>>> ListarPagos(long clienteId, CancellationToken cancellationToken)
+    {
+        if (User.IsInRole("Cliente") && !EsClienteAutorizado(clienteId)) return Forbid();
+        var cliente = await clientes.ObtenerConComprasAsync(clienteId, cancellationToken);
+        if (cliente is null) return NotFound("Cliente no encontrado.");
+        if (!EsTiendaAutorizada(cliente)) return Forbid();
+        var pagos = await clientes.ListarPagosAsync(clienteId, cancellationToken);
+        return Ok(pagos.Select(x => new PagoHistorialResponse(x.Id, x.MontoAbonado, x.FechaPago,
+            x.ImputacionMora, x.ImputacionInteres, x.ImputacionCapital)).ToArray());
     }
 
     /// <summary>Registra un pago exacto por el total exigible a la fecha de pago (sin parciales ni excedentes) y lo imputa globalmente en el orden mora, interés compensatorio y capital.</summary>
@@ -175,5 +192,5 @@ public sealed class CreditosController(
         long.TryParse(User.FindFirst("ClienteId")?.Value, out var tokenClienteId) && tokenClienteId == clienteId;
 
     private bool EsTiendaAutorizada(Cliente cliente) =>
-        User.IsInRole("Cliente") || (long.TryParse(User.FindFirstValue("TiendaId"), out var tiendaId) && tiendaId == cliente.TiendaId);
+        long.TryParse(User.FindFirstValue("TiendaId"), out var tiendaId) && tiendaId == cliente.TiendaId;
 }
